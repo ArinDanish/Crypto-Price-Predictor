@@ -1,2 +1,5 @@
 start-redpanda:
 	docker compose -f D:/Crypto-Price-Predictor/redpanda.yml up -d	
+
+stop-redpanda:
+	docker compose -f D:/Crypto-Price-Predictor/redpanda.yml down	
