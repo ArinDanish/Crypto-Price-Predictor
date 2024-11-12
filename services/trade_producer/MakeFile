@@ -9,7 +9,7 @@ build:
 	docker build -t trade_producer -f D:\Crypto-Price-Predictor\services\trade_producer\Dockerfile .
 
 run: build
-	docker run ^
-		--network=redpanda_network ^
-		--env-file prod.env ^
+	docker run \
+		--network=redpanda_network \
+		--env-file prod.env \
 		trade_producer

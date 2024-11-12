@@ -1,13 +1,15 @@
+# Makefile
+
 run-dev:
-# cp dev.env .env
-	poetry run python src\main.py
-
-# build:
-#     docker build -t trade_to_ohlc -f D:\Crypto-Price-Predictor\services\trade_producer\Dockerfile .
+	if exist dev.env (copy dev.env .env)
+	set PYTHONPATH=%cd% && poetry run python src\main.py
 
 
-# run: build
-# 	docker run \
-# 		--network=redpanda_network \
-# 		--env-file prod.env \
-# 		trade_to_ohlc
+build:
+	docker build -t trade_to_ohlc -f D:\Crypto-Price-Predictor\services\trade_to_ohlc\Dockerfile .
+
+run: build
+	docker run \
+		--network=redpanda_network \
+		--env-file prod.env \
+		trade_to_ohlc
