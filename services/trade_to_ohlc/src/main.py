@@ -1,31 +1,41 @@
 from quixstreams import Application
 from datetime import datetime , timedelta
+
 from loguru import logger
+import sys
+logger.remove()
+logger.add(sys.stdout, level="DEBUG")
+
 
 def init_ohlcv_candle(trade: dict):
-    """
-    Returns the OHLCV candle when the first trade in that window happens.
-    """
-    return {
+    candle = {
         'open': trade['price'],
         'high': trade['price'],
         'low': trade['price'],
         'close': trade['price'],
         'volume': trade['quantity'], 
     }
+    logger.debug(f"Initialized candle: {candle}")
+
+    return candle
+
 
 def update_ohlcv_candle(candle: dict, trade: dict):
+
+    logger.debug(f"Updating candle with trade: {trade}")
     """
     Updates OHLCV candle with new trade.
     """
     candle['high'] = max(candle['high'], trade['price'])
     candle['low'] = min(candle['low'], trade['price'])
     candle['close'] = trade['price']
-    candle['volume'] =trade['quantity']
+    candle['volume'] +=trade['quantity']
+
+    logger.debug(f"Updated candle: {candle}")
 
     return candle
 
-def transform_trade_to_ohlc(
+def transform_trade_to_ohlcv(
     kafka_broker_address: str,
     kafka_input_topic: str,
     kafka_output_topic: str,
@@ -46,33 +56,51 @@ def transform_trade_to_ohlc(
     """
     app = Application(
         broker_address=kafka_broker_address,
-        consumer_group=kafka_consumer_group
+        consumer_group=kafka_consumer_group,
+        auto_offset_reset='earliest'
+        
     )
 
     input_topic = app.topic(name=kafka_input_topic, value_deserializer='json')
-    output_topic = app.topic(name=kafka_output_topic, value_deserializer='json')
+    output_topic = app.topic(name=kafka_output_topic, value_serializer='json')
 
     sdf = app.dataframe(input_topic)
 
-    sdf.update(logger.debug)
+    sdf.update(lambda trade: logger.debug(f"Received trade: {trade}"))
 
-    sdf = (
-        sdf.tumbling_window(duration_ms=timedelta(seconds=1))
-        .reduce(reducer=update_ohlcv_candle, initializer=init_ohlcv_candle )
-        .final()
-    )
+    
+
+    sdf = sdf.tumbling_window(duration_ms=timedelta(seconds=60)).reduce(
+        reducer=update_ohlcv_candle,
+        initializer=init_ohlcv_candle).final
+    
+    logger.debug("Completed tumbling window setup for data aggregation.")
+
+    # sdf = sdf.select(['open', 'high', 'low', 'close'])
+
+    #  # unpacking the trades we want
+    # sdf['open'] = sdf['trade']['open']
+    # sdf['high'] = sdf['trade']['high']
+    # sdf['low'] = sdf['trade']['low']
+    # sdf['close'] = sdf['trade']['close']
 
     # Print the output to the console
-    sdf.update(logger.debug)
+    # sdf = sdf[[ 'open', 'high', 'low', 'close']]
 
-    app.run(sdf)
+    # sdf = sdf.to_topic(output_topic)
+
+    logger.debug("Starting application to process trades.")
+
+    app.run()
 
 
 if __name__ == "__main__":
 
-    transform_trade_to_ohlc(
-        kafka_broker_address='localhost:19092',
-        kafka_input_topic='trade',
-        kafka_output_topic='ohlcv',
-        kafka_consumer_group='consumer_group_trade_to_ohlcv',
+    from src.config import config
+
+    transform_trade_to_ohlcv(
+        kafka_broker_address=config.kafka_broker_address, 
+        kafka_input_topic=config.kafka_input_topic,
+        kafka_output_topic=config.kafka_output_topic,
+        kafka_consumer_group=config.kafka_consumer_group,
     )

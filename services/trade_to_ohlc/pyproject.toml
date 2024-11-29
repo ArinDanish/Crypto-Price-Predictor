@@ -8,6 +8,8 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.11"
 loguru = "^0.7.2"
+quixstreams = "^3.2.1"
+confluent-kafka = ">=2.4,<2.5"
 
 
 [build-system]
